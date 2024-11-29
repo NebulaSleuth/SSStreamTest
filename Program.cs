@@ -18,6 +18,35 @@ using static DirectShowLib.MediaSubType;
 using static System.Net.Mime.MediaTypeNames;
 using Application = System.Windows.Forms.Application;
 
+//
+// Janus Stream configuration file
+//
+// ballcall: {
+// 	type = "rtp"
+// 	id = 1001
+// 	description = "Ball Call Stream"
+// 	metadata = "This is an example of a multistream mountpoint: you'll get an audio stream and two video feeds"
+// 	media = (
+// 		{
+// 			type = "audio"
+// 			mid = "audio1"
+// 			label = "Audio stream"
+// 			port = 8005
+// 			pt = 111
+// 			codec = "opus"
+// 		},
+// 		{
+// 			type = "video"
+// 			mid = "video1"
+// 			label = "Video stream #1"
+// 			port = 8004
+// 			pt = 100
+// 			codec = "vp8"
+// 			videofmtp = "profile-level-id=42e01f;packetization-mode=1"
+// 		}
+// 	)
+// }
+
 namespace demo
 {
     class Program
@@ -45,11 +74,8 @@ namespace demo
                 var videoSink = new FFmpegVideoEndPoint();
                 videoSink.RestrictFormats(format => format.Codec == VideoCodecsEnum.VP8 || format.Codec == VideoCodecsEnum.VP9 || format.Codec == VideoCodecsEnum.H264);
 
-                //var videoSink = new VideoEncoderEndPoint();
-                pc.OnVideoFrameReceived += (a, b, c, d) =>
-                {
-                    videoSink.GotVideoFrame(a, b, c, d);
-                };
+                pc.OnVideoFrameReceived += videoSink.GotVideoFrame(a, b, c, d);
+                
                 pc.OnVideoFormatsNegotiated += (formats) =>
                 {
                     videoSink.SetVideoSourceFormat(formats.First());
@@ -121,9 +147,10 @@ namespace demo
                 cts = new CancellationTokenSource();
 
                 ulong id = 0;
-                // Connect to the janus server attach to the videoroom plugin and join room 100.  Then start the video stream.
+
+                // Connect to the janus server attach to the videoroom plugin and join stream 1001.  
                 var janusClient = new JanusRestClient(SERVER_URL, logger, cts.Token);
-#pragma warning disable VSTHRD101 // Avoid unsupported async delegates
+
                 janusClient.OnJanusEvent += async (str) =>
                 {
                     var resp = JsonConvert.DeserializeObject<dynamic>(str);
@@ -142,7 +169,6 @@ namespace demo
                             var answerSdp = pc.createAnswer(null);
                             await pc.setLocalDescription(answerSdp);
                             await janusClient.SendStart(id, answerSdp.sdp);
-                            //await pc.Start();//.ConfigureAwait(false);
                         }
                         else
                         {
@@ -155,7 +181,6 @@ namespace demo
                         logger.LogDebug("Event: " + str);
                     }
                 };
-#pragma warning restore VSTHRD101 // Avoid unsupported async delegates
 
                 await janusClient.StartSession().ConfigureAwait(false);
                 id = await janusClient.StartStreamingPlugin().ConfigureAwait(false);

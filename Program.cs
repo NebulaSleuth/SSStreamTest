@@ -17,6 +17,7 @@ using Newtonsoft.Json;
 using static DirectShowLib.MediaSubType;
 using static System.Net.Mime.MediaTypeNames;
 using Application = System.Windows.Forms.Application;
+using FFmpeg.AutoGen;
 
 //
 // Janus Stream configuration file
@@ -47,6 +48,13 @@ using Application = System.Windows.Forms.Application;
 // 	)
 // }
 
+//
+// FFMPEG RTP command
+//
+// ffmpeg -f dshow -thread_queue_size 8192 -video_size 1280x720 -framerate 10 -i video="Astra Pro HD Camera" \
+// -pix_fmt yuv420p -c:v libvpx -b:v 1M -deadline realtime -max_delay 0 -an -bufsize 1M -vsync 1 -g 10 -f rtp rtp://10.0.2.25:8004/
+//
+
 namespace demo
 {
     class Program
@@ -72,9 +80,9 @@ namespace demo
                 var pc = new RTCPeerConnection(null);
                 SIPSorceryMedia.FFmpeg.FFmpegInit.Initialise(SIPSorceryMedia.FFmpeg.FfmpegLogLevelEnum.AV_LOG_VERBOSE, ffmpegLibFullPath, logger);
                 var videoSink = new FFmpegVideoEndPoint();
-                videoSink.RestrictFormats(format => format.Codec == VideoCodecsEnum.VP8 || format.Codec == VideoCodecsEnum.VP9 || format.Codec == VideoCodecsEnum.H264);
+                videoSink.RestrictFormats(format => format.Codec == VideoCodecsEnum.VP8);
 
-                pc.OnVideoFrameReceived += videoSink.GotVideoFrame(a, b, c, d);
+                pc.OnVideoFrameReceived += videoSink.GotVideoFrame;
                 
                 pc.OnVideoFormatsNegotiated += (formats) =>
                 {
@@ -141,7 +149,6 @@ namespace demo
                     Visible = true
                 };
                 _form.Controls.Add(_picBox);
-
 
 
                 cts = new CancellationTokenSource();
